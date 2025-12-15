@@ -7,7 +7,7 @@
 #include <Arduino.h>
 #include "FirmwareData.h"
 #include "Network.h"
-#include "OtaDebug.h"
+#include "CommonOta.h"
 
 class SimpleOTA {
 private:

@@ -3,7 +3,7 @@
 
 #include <EEPROM.h>
 #include "MyFirmware.h"
-#include "OtaDebug.h"
+#include "CommonOta.h"
 
 //#define DEBUG
 

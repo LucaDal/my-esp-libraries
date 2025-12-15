@@ -5,6 +5,7 @@
 
 #include "MyUpdater.h"
 #include "OtaDebug.h"
+#include "CommonOta.h"
 
 #ifdef ESP8266
     #include <ESP8266httpUpdate.h>
