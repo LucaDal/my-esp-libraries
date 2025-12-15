@@ -1,9 +1,6 @@
 #ifndef SIMLPEOTA_H
 #define SIMLPEOTA_H
 
-//to activate serial.Print()
-//#define DEBUG
-
 #include <Arduino.h>
 #include "FirmwareData.h"
 #include "Network.h"

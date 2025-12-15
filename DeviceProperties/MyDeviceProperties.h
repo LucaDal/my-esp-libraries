@@ -5,8 +5,6 @@
 #include <EEPROM.h>
 #include <ArduinoJson.h>
 
-//#define DEBUG
-
 #if defined(ESP8266)
 #include <ESP8266HTTPClient.h>
 #include <ESP8266WiFi.h>
@@ -14,6 +12,8 @@
 #include <HTTPClient.h>
 #include <WiFi.h>
 #endif
+
+#include <CommonDebug.h>
 
 #ifdef USE_TLS
 #ifdef ESP8266
@@ -37,13 +37,8 @@
   using NetClient = WiFiClient;
 #endif
 
-#ifdef DEBUG
-  #define MYPROPS_LOG(msg) Serial.printf(PSTR("*MyProps: %s\n"), (msg))
-  #define MYPROPS_LOGF(fmt, ...) Serial.printf(PSTR("*MyProps: " fmt), ##__VA_ARGS__)
-#else
-  #define MYPROPS_LOG(msg) ((void)0)
-  #define MYPROPS_LOGF(...) ((void)0)
-#endif
+#define MYPROPS_LOG(msg) DBG_LOG("*MyProps:", msg)
+#define MYPROPS_LOGF(fmt, ...) DBG_LOGF("*MyProps:", fmt, ##__VA_ARGS__)
 
 class MyDeviceProperties {
 public:

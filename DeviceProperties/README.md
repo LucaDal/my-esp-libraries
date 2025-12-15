@@ -6,7 +6,7 @@ Fetches device properties from your backend and caches them in EEPROM so they pe
 - HTTP/HTTPS fetch from `http(s)://<server>/ota/<deviceTypeId>/properties`.
 - Length-prefixed payload saved to EEPROM; skips writes if unchanged.
 - Provides a `JsonDocument` in RAM for easy access.
-- Compact debug logs when `DEBUG` is defined.
+- Compact debug logs via `CommonDebug` when `DEBUG` is defined.
 
 ## Dependencies
 - ArduinoJson (v7)
@@ -45,5 +45,5 @@ void loop() {
 - Constructor argument `verifyCert=true` enables CA validation (Let’s Encrypt roots) on ESP8266/ESP32; `false` calls `setInsecure()` (lighter but no validation).
 
 ## Debug
-- Uncomment `//#define DEBUG` in `MyDeviceProperties.h` (or add `-DDEBUG` to build flags) to enable `*MyProps:` logs.
-- Leave disabled to avoid extra flash usage.
+- Define `-DDEBUG` in `platformio.ini` to enable `*MyProps:` logs (routed through [`CommonDebug`](../CommonDebug/CommonDebug.h)).
+- Leave disabled to avoid extra flash usage; when `DEBUG` is not set the logging code is compiled out.

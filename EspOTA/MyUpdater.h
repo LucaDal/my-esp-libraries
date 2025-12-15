@@ -1,8 +1,6 @@
 #ifndef MYUPDATER_H
 #define MYUPDATER_H
 
-//#define DEBUG
-
 #include "MyUpdater.h"
 #include "OtaDebug.h"
 

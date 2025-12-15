@@ -1,8 +1,6 @@
 #ifndef NETWORK_H
 #define NETWORK_H
 
-//#define DEBUG
-
 #include <ArduinoJson.h>
 #include "MyUpdater.h"
 #include "MyFirmware.h"

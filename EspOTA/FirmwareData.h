@@ -5,8 +5,6 @@
 #include "MyFirmware.h"
 #include "OtaDebug.h"
 
-//#define DEBUG
-
 class FirmwareData {
 private:
   Firmware newFirmware;
