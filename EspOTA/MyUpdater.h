@@ -2,7 +2,6 @@
 #define MYUPDATER_H
 
 #include "MyUpdater.h"
-#include "OtaDebug.h"
 #include "CommonOta.h"
 
 #ifdef ESP8266

@@ -49,13 +49,15 @@ void LiteWiFiManager::loop() {
 
 bool LiteWiFiManager::connectWithStored(unsigned long connectTimeoutMs) {
   WiFi.mode(WIFI_STA);
+  WiFi.setAutoConnect(true);
+  WiFi.setAutoReconnect(true);
+  WiFi.begin();  // reconnect using credentials already stored by the core
+
   String ssid = WiFi.SSID();
   if (ssid.length() == 0) {
     WM_LOG("No stored WiFi credentials");
     return false;
   }
-
-  WiFi.begin();
 
   WM_LOGF("Connecting to stored SSID: %s\n", ssid.c_str());
   unsigned long start = millis();
@@ -78,7 +80,10 @@ bool LiteWiFiManager::connectWithNew(const String &ssid,
                                      const String &password,
                                      unsigned long connectTimeoutMs) {
   WiFi.mode(WIFI_STA);
-  WiFi.persistent(true);  // write to native storage
+  WiFi.setAutoConnect(true);
+  WiFi.setAutoReconnect(true);
+
+  WiFi.persistent(true);  // write to native storage when beginning
   WiFi.begin(ssid.c_str(), password.c_str());
   WiFi.persistent(false);
 
