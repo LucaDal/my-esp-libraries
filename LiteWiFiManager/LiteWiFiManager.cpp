@@ -11,11 +11,15 @@ bool LiteWiFiManager::begin(const char *apSsid,
                             const char *apPassword,
                             unsigned long configPortalTimeoutMs,
                             bool forcePortal) {
-  WiFi.persistent(false);  // avoid flash writes unless saving new creds
+  WiFi.persistent(true);  // ensure flash-backed creds are loaded
+  WiFi.disconnect(false, true);  // load from flash into RAM without clearing
 
   if (!forcePortal && connectWithStored()) {
     return true;
   }
+
+  // Disable automatic writes until we explicitly save new credentials.
+  WiFi.persistent(false);
 
   startPortal(apSsid, apPassword, configPortalTimeoutMs);
 
@@ -55,11 +59,10 @@ bool LiteWiFiManager::connectWithStored(unsigned long connectTimeoutMs) {
 
   String ssid = WiFi.SSID();
   if (ssid.length() == 0) {
-    WM_LOG("No stored WiFi credentials");
-    return false;
+    WM_LOG("Stored SSID unknown (empty), trying anyway");
+  } else {
+    WM_LOGF("Connecting to stored SSID: %s\n", ssid.c_str());
   }
-
-  WM_LOGF("Connecting to stored SSID: %s\n", ssid.c_str());
   unsigned long start = millis();
   while (WiFi.status() != WL_CONNECTED &&
          millis() - start < connectTimeoutMs) {
@@ -68,7 +71,8 @@ bool LiteWiFiManager::connectWithStored(unsigned long connectTimeoutMs) {
 
   if (WiFi.status() == WL_CONNECTED) {
     WiFi.setAutoReconnect(true);
-    WM_LOG("Connected with stored credentials");
+    WM_LOGF("Connected with stored credentials (SSID: %s)\n",
+            WiFi.SSID().c_str());
     return true;
   }
 
@@ -83,9 +87,13 @@ bool LiteWiFiManager::connectWithNew(const String &ssid,
   WiFi.setAutoConnect(true);
   WiFi.setAutoReconnect(true);
 
-  WiFi.persistent(true);  // write to native storage when beginning
-  WiFi.begin(ssid.c_str(), password.c_str());
-  WiFi.persistent(false);
+  WiFi.disconnect(true, true);  // clear previous config and RAM cache
+  delay(100);
+  WiFi.persistent(true);  // keep persistence on through the connection attempt
+  WiFi.begin(ssid.c_str(),
+             password.length() ? password.c_str() : nullptr);  // nullptr ok for open
+  // leave persistence enabled until after we waited for a connection so the
+  // stack has time to flush credentials to flash/NVS.
 
   WM_LOGF("Connecting to %s\n", ssid.c_str());
   unsigned long start = millis();
@@ -93,6 +101,8 @@ bool LiteWiFiManager::connectWithNew(const String &ssid,
          millis() - start < connectTimeoutMs) {
     delay(200);
   }
+
+  WiFi.persistent(false);  // return to non-persistent after attempt
 
   if (WiFi.status() == WL_CONNECTED) {
     WiFi.setAutoReconnect(true);
