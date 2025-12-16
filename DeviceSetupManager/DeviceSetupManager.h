@@ -2,8 +2,8 @@
 #define DEVICE_SETUP_MANAGER_H
 
 #include <Arduino.h>
-#include <EEPROM.h>
 #include <CommonDebug.h>
+#include <EEPROM.h>
 
 #define DSM_LOG(msg) DBG_LOG("*DSM:", msg)
 #define DSM_LOGF(fmt, ...) DBG_LOGF("*DSM:", fmt, ##__VA_ARGS__)
