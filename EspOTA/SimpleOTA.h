@@ -2,28 +2,28 @@
 #define SIMLPEOTA_H
 
 #include <Arduino.h>
+
+#include "CommonOta.h"
 #include "FirmwareData.h"
 #include "Network.h"
-#include "CommonOta.h"
 
 class SimpleOTA {
 private:
-  FirmwareData *version;
-  Network *network;
-  unsigned long t1;
-  const char * API_KEY;
-  bool isInit = false;
+  FirmwareData *version{nullptr};
+  Network *network{nullptr};
+  unsigned long t1{0};
+  const char *API_KEY{nullptr};
+  bool isInit{false};
 
-  void initVersion(int EEPROMSize);
-  void initNetwork(const char * base_url, bool useTLS);
+  void initVersion();
+  void initNetwork(const char *base_url, bool useTLS);
   bool serverFirmwareCheck();
   bool startDownload();
-  void init(int EEPROMSize, const char * API_KEY);
-  //void updateFirmware();
+  void init(const char *API_KEY);
 
 public:
   SimpleOTA();
-  void begin(int EEPROMSize,const char * server_address, const char * API_KEY, bool verifyCert);
+  void begin(const char *server_address, const char *API_KEY, bool verifyCert);
   bool checkUpdates(unsigned long seconds);
 };
 

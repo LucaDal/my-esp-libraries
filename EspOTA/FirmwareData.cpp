@@ -1,54 +1,79 @@
 #include "FirmwareData.h"
 
-FirmwareData::FirmwareData(int EEPROMSize) {
-  this->EEPROMSize = EEPROMSize;
-  EEPROM.begin(EEPROMSize);
-  this->loadVersion();
-  hasNewFirmware = false;
+FirmwareData::FirmwareData(const char *storagePath)
+    : storagePath(storagePath ? storagePath : "/device/fw_version.txt") {
+  loadVersion();
 }
 
-/*
-Version is stored in in the last two bit
-*/
-void FirmwareData::loadVersion() {
+bool FirmwareData::ensureStorageReady() {
+  if (fsReady) {
+    return true;
+  }
+#if defined(ESP32)
+  fsReady = LittleFS.begin(true);
+#else
+  fsReady = LittleFS.begin();
+#endif
+  if (!fsReady) {
+    OTA_LOG("LittleFS begin fail");
+    return false;
+  }
 
-  uint8_t major = EEPROM.read(EEPROMSize - 3);
-  uint8_t minor = EEPROM.read(EEPROMSize - 2);
-  uint8_t patch = EEPROM.read(EEPROMSize - 1);
-
-  this->newFirmware.version =
-      String(major) + '.' + String(minor) + '.' + String(patch);
-}
-
-String getValue(String data, char separator, int index) {
-  int found = 0;
-  int strIndex[] = {0, -1};
-  int maxIndex = data.length() - 1;
-
-  for (int i = 0; i <= maxIndex && found <= index; i++) {
-    if (data.charAt(i) == separator || i == maxIndex) {
-      found++;
-      strIndex[0] = strIndex[1] + 1;
-      strIndex[1] = (i == maxIndex) ? i + 1 : i;
+  int split = storagePath.lastIndexOf('/');
+  if (split > 0) {
+    String dir = storagePath.substring(0, split);
+    if (!LittleFS.exists(dir) && !LittleFS.mkdir(dir)) {
+      OTA_LOG("mkdir for fw version fail");
+      return false;
     }
   }
-  return found > index ? data.substring(strIndex[0], strIndex[1]) : "";
+  return true;
+}
+
+void FirmwareData::loadVersion() {
+  newFirmware.version = "0.0.0";
+
+  if (!ensureStorageReady()) {
+    return;
+  }
+
+  File f = LittleFS.open(storagePath, "r");
+  if (!f) {
+    OTA_LOG("fw version file missing, using 0.0.0");
+    return;
+  }
+
+  String version = f.readString();
+  f.close();
+  version.trim();
+  if (!version.isEmpty()) {
+    newFirmware.version = version;
+  }
 }
 
 void FirmwareData::saveVersion(String version) {
-  // inde starting from left ex 10.0.2 => index 0 = 10;
-  uint8_t major = getValue(version, '.', 0).toInt();
-  uint8_t minor = getValue(version, '.', 1).toInt();
-  uint8_t patch = getValue(version, '.', 2).toInt();
-  OTA_LOGF("save %i.%i.%i\n", major, minor, patch);
-  EEPROM.write(EEPROMSize - 3, major);
-  EEPROM.write(EEPROMSize - 2, minor);
-  EEPROM.write(EEPROMSize - 1, patch);
-  EEPROM.commit();
+  version.trim();
+  if (version.isEmpty()) {
+    OTA_LOG("skip empty version");
+    return;
+  }
+  if (!ensureStorageReady()) {
+    return;
+  }
+
+  OTA_LOGF("save %s\n", version.c_str());
+  File f = LittleFS.open(storagePath, "w");
+  if (!f) {
+    OTA_LOG("open fw version file in write fail");
+    return;
+  }
+
+  f.print(version);
+  f.close();
+  newFirmware.version = version;
 }
 
 void FirmwareData::setNewFirmware(Firmware firmware) {
-
   if (newFirmware.version == firmware.version) {
     return;
   }

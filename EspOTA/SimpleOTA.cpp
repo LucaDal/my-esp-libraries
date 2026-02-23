@@ -1,36 +1,25 @@
 #include "SimpleOTA.h"
 
-static SimpleOTA* instance = NULL;
+static SimpleOTA *instance = NULL;
 
 SimpleOTA::SimpleOTA() {
   OTA_LOG("start client");
-  t1 = 0;
   instance = this;
 }
 
-
-void SimpleOTA::init(int EEPROMSize, const char* API_KEY) {
-  this->initVersion(EEPROMSize);
+void SimpleOTA::init(const char *API_KEY) {
+  this->initVersion();
   this->API_KEY = API_KEY;
   this->isInit = true;
   checkUpdates(0);
 }
 
-/**
- * @brief initialize OTA class and check updates.
- * Firmware data will be saved to the last EEPROM address;
- * address_IP is the DNS or IP address, do NOT pass https or http type;
- * verifyCert is only used if flag USE_TLS in platformio.ini is set;
- */
-void SimpleOTA::begin(int EEPROMSize, const char* server_address, const char* API_KEY, bool verifyCert = true) {
+void SimpleOTA::begin(const char *server_address, const char *API_KEY,
+                      bool verifyCert) {
   this->initNetwork(server_address, verifyCert);
-  init(EEPROMSize, API_KEY);
+  init(API_KEY);
 }
 
-/**
- * @brief return false if something goes wrong
- * called from the main thread
- */
 bool SimpleOTA::checkUpdates(unsigned long seconds) {
   if (!this->isInit)
     return false;
@@ -43,45 +32,41 @@ bool SimpleOTA::checkUpdates(unsigned long seconds) {
   return true;
 }
 
-void SimpleOTA::initVersion(int EEPROMSize) {
-  version = new FirmwareData(EEPROMSize);
+void SimpleOTA::initVersion() {
+  version = new FirmwareData();
   OTA_LOGF("current version %s\n", version->getNewFirmwareVersion().c_str());
 }
 
-void SimpleOTA::initNetwork(const char* base_url, bool useTLS) {
+void SimpleOTA::initNetwork(const char *base_url, bool useTLS) {
   OTA_LOG("init network");
   network = new Network(base_url, useTLS);
   network->WiFiBegin();
 }
 
 bool SimpleOTA::startDownload() {
-  if (network->fileDownload(API_KEY, version->getFirmwareMD5Image(), version->getOldFirmwareVersion())) {
-    OTA_LOG("saving new version to EEPROM");
-    version->saveVersion(version->getNewFirmwareVersion());//save only if update goes fine
+  if (network->fileDownload(API_KEY, version->getFirmwareMD5Image(),
+                            version->getOldFirmwareVersion())) {
+    OTA_LOG("saving new version to storage");
+    version->saveVersion(version->getNewFirmwareVersion());
     OTA_LOG("restarting board");
-    delay(1000); // Wait a second and restart
+    delay(1000);
     ESP.restart();
   }
   return false;
 }
-/**
- * return false if failed, true if no update found.
- */
+
 bool SimpleOTA::serverFirmwareCheck() {
   version->setNewFirmware(network->checkVersion(API_KEY));
   if (version->getNewFirmwareVersion() == "-1") {
     OTA_LOG("server not responding");
     return false;
-  }
-  else {
+  } else {
     if (version->hasNewUpdate()) {
       OTA_LOG("new build available, start download");
       return startDownload();
-    }
-    else {
+    } else {
       OTA_LOG("version up to date");
     }
     return true;
   }
 }
-

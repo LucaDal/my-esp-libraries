@@ -3,31 +3,23 @@
 
 #include <Arduino.h>
 #include <CommonDebug.h>
-#include <EEPROM.h>
+#include <LittleFS.h>
 
 #define DSM_LOG(msg) DBG_LOG("*DSM:", msg)
 #define DSM_LOGF(fmt, ...) DBG_LOGF("*DSM:", fmt, ##__VA_ARGS__)
 
 class DeviceSetupManager {
 public:
-  explicit DeviceSetupManager(size_t eepromSize = 512,
-                              size_t reservedTailBytes = 3);
-  ~DeviceSetupManager();
+  explicit DeviceSetupManager(const char *provisioningDir = "/provisioning");
 
   bool begin();
-
-  size_t saveCString(size_t startOffset, const char *value);
-  const char *readCString(size_t startOffset, size_t *nextOffset = nullptr);
+  bool saveDeviceId(const char *deviceId);
+  String readDeviceId() const;
 
 private:
-  bool hasRoom(size_t startOffset, size_t needed) const;
-  bool ensureBuffer(size_t len);
-
-  size_t _eepromSize;
-  size_t _reservedTailBytes;
+  String _provisioningDir;
   bool _begun{false};
-  char *_readBuffer{nullptr};
-  size_t _bufferLen{0};
+  static constexpr const char *_deviceIdFileName = "device_id.txt";
 };
 
 #endif

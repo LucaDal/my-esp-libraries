@@ -1,162 +1,73 @@
 #include "DeviceSetupManager.h"
 
-#include <limits.h>
-#include <stdlib.h>
-#include <string.h>
-
-DeviceSetupManager::DeviceSetupManager(size_t eepromSize,
-                                       size_t reservedTailBytes)
-    : _eepromSize(eepromSize), _reservedTailBytes(reservedTailBytes) {}
-
-DeviceSetupManager::~DeviceSetupManager() {
-  if (_readBuffer) {
-    free(_readBuffer);
-    _readBuffer = nullptr;
-    _bufferLen = 0;
-  }
-}
+DeviceSetupManager::DeviceSetupManager(const char *provisioningDir)
+    : _provisioningDir(provisioningDir ? provisioningDir : "/provisioning") {}
 
 bool DeviceSetupManager::begin() {
   if (_begun) {
     return true;
   }
-#if defined(ESP8266)
-  EEPROM.begin(_eepromSize);
-  bool ok = true;
+
+#if defined(ESP32)
+  bool ok = LittleFS.begin(true);
 #else
-  bool ok = EEPROM.begin(_eepromSize);
+  bool ok = LittleFS.begin();
 #endif
   if (!ok) {
-    DSM_LOG("EEPROM begin failed");
+    DSM_LOG("LittleFS begin failed");
     return false;
   }
+
+  if (!LittleFS.exists(_provisioningDir)) {
+    if (!LittleFS.mkdir(_provisioningDir)) {
+      DSM_LOG("mkdir provisioning dir failed");
+      return false;
+    }
+  }
+
   _begun = true;
-  DSM_LOGF("EEPROM ready size=%u reserve=%u\n",
-           static_cast<unsigned>(_eepromSize),
-           static_cast<unsigned>(_reservedTailBytes));
+  DSM_LOGF("LittleFS ready, provisioning dir=%s\n", _provisioningDir.c_str());
   return true;
 }
 
-bool DeviceSetupManager::hasRoom(size_t startOffset, size_t needed) const {
-  if (_eepromSize <= _reservedTailBytes) {
-    return false;
-  }
-  size_t usable = _eepromSize - _reservedTailBytes;
-  if (startOffset > usable) {
-    return false;
-  }
-  return startOffset + needed <= usable;
-}
-
-size_t DeviceSetupManager::saveCString(size_t startOffset, const char *value) {
+bool DeviceSetupManager::saveDeviceId(const char *deviceId) {
   if (!begin()) {
-    return startOffset;
-  }
-
-  if (value == nullptr) {
-    DSM_LOG("null string");
-    return startOffset;
-  }
-
-  size_t len = strlen(value);
-  if (len > UINT16_MAX) {
-    DSM_LOG("string too long");
-    return startOffset;
-  }
-
-  size_t needed = sizeof(uint16_t) + len;
-  if (!hasRoom(startOffset, needed)) {
-    DSM_LOG("not enough EEPROM space");
-    return startOffset;
-  }
-
-  uint16_t len16 = static_cast<uint16_t>(len);
-  EEPROM.write(startOffset, len16 & 0xFF);
-  EEPROM.write(startOffset + 1, (len16 >> 8) & 0xFF);
-  for (uint16_t i = 0; i < len16; i++) {
-    EEPROM.write(startOffset + 2 + i, static_cast<uint8_t>(value[i]));
-  }
-
-  if (!EEPROM.commit()) {
-    DSM_LOG("EEPROM commit failed");
-    return startOffset;
-  }
-
-  size_t nextOffset = startOffset + 2 + len16;
-  DSM_LOGF("saved %u bytes at %u next=%u\n", len16,
-           static_cast<unsigned>(startOffset),
-           static_cast<unsigned>(nextOffset));
-  return nextOffset;
-}
-
-bool DeviceSetupManager::ensureBuffer(size_t len) {
-  size_t needed = len + 1;  // +1 for terminator
-  if (_bufferLen >= needed) {
-    return true;
-  }
-  void *newBuf = realloc(_readBuffer, needed);
-  if (!newBuf) {
-    DSM_LOG("buffer alloc failed");
     return false;
   }
-  _readBuffer = static_cast<char *>(newBuf);
-  _bufferLen = needed;
+  if (!deviceId || strlen(deviceId) == 0) {
+    DSM_LOG("device id empty");
+    return false;
+  }
+
+  String path = _provisioningDir + "/" + _deviceIdFileName;
+  File f = LittleFS.open(path, "w");
+  if (!f) {
+    DSM_LOG("open device id file failed");
+    return false;
+  }
+  if (!f.print(deviceId)) {
+    f.close();
+    DSM_LOG("write device id failed");
+    return false;
+  }
+  f.close();
+  DSM_LOGF("device id saved: %s\n", deviceId);
   return true;
 }
 
-const char *DeviceSetupManager::readCString(size_t startOffset,
-                                            size_t *nextOffset) {
+String DeviceSetupManager::readDeviceId() const {
   if (!_begun) {
-    DSM_LOG("begin() not called");
-    if (nextOffset) {
-      *nextOffset = startOffset;
-    }
-    return nullptr;
+    return "";
   }
-
-  if (_eepromSize <= _reservedTailBytes) {
-    DSM_LOG("no usable EEPROM");
-    if (nextOffset) {
-      *nextOffset = startOffset;
-    }
-    return nullptr;
+  String path = _provisioningDir + "/" + _deviceIdFileName;
+  File f = LittleFS.open(path, "r");
+  if (!f) {
+    DSM_LOG("device id file not found");
+    return "";
   }
-
-  size_t usable = _eepromSize - _reservedTailBytes;
-  if (startOffset + 1 >= usable) {
-    DSM_LOG("offset out of range");
-    if (nextOffset) {
-      *nextOffset = startOffset;
-    }
-    return nullptr;
-  }
-
-  uint16_t len =
-      EEPROM.read(startOffset) | (EEPROM.read(startOffset + 1) << 8);
-  size_t end = startOffset + 2 + len;
-  if (end > usable) {
-    DSM_LOG("read length overflow");
-    if (nextOffset) {
-      *nextOffset = startOffset;
-    }
-    return nullptr;
-  }
-
-  if (!ensureBuffer(len)) {
-    if (nextOffset) {
-      *nextOffset = startOffset;
-    }
-    return nullptr;
-  }
-  for (uint16_t i = 0; i < len; i++) {
-    _readBuffer[i] = static_cast<char>(EEPROM.read(startOffset + 2 + i));
-  }
-  _readBuffer[len] = '\0';
-
-  if (nextOffset) {
-    *nextOffset = end;
-  }
-  DSM_LOGF("read %u bytes from %u\n", len,
-           static_cast<unsigned>(startOffset));
-  return _readBuffer;
+  String deviceId = f.readStringUntil('\n');
+  f.close();
+  deviceId.trim();
+  DSM_LOGF("device id loaded: %s\n", deviceId.c_str());
+  return deviceId;
 }

@@ -1,54 +1,84 @@
 #include "MyDeviceProperties.h"
 
-MyDeviceProperties::MyDeviceProperties(size_t eepromSize, size_t eepromOffset,
-                                       size_t reservedTailBytes,
-                                       size_t jsonCapacity, bool verifyCert)
-    : eepromSize(eepromSize), eepromOffset(eepromOffset),
-      reservedTailBytes(reservedTailBytes), verifyCert(verifyCert) {
-  (void)jsonCapacity;
+MyDeviceProperties::MyDeviceProperties(bool verifyCert, const char *storagePath)
+    : storagePath(storagePath ? storagePath : "/device/properties.json"),
+      verifyCert(verifyCert) {
 #ifdef USE_TLS
-  #ifdef ESP8266
-    #ifdef USE_TLS_CERTS
-      trustedRoots.append(cert_ISRG_X1);
-      trustedRoots.append(cert_ISRG_X2);
-      if (verifyCert) {
-        client->setTrustAnchors(&trustedRoots);
-        client->setSSLVersion(BR_TLS12, BR_TLS12);
-      } else {
-        client->setInsecure();
-      }
-    #else
-      client->setInsecure();
-    #endif
-  #elif defined(ESP32)
-    #ifdef USE_TLS_CERTS
-      if (verifyCert) {
-        client->setCACert(cert_ISRG_X1);
-      } else {
-        client->setInsecure();
-      }
-    #else
-      client->setInsecure();
-    #endif
-  #endif
+#ifdef ESP8266
+#ifdef USE_TLS_CERTS
+  trustedRoots.append(cert_ISRG_X1);
+  trustedRoots.append(cert_ISRG_X2);
+  if (verifyCert) {
+    client->setTrustAnchors(&trustedRoots);
+    client->setSSLVersion(BR_TLS12, BR_TLS12);
+  } else {
+    client->setInsecure();
+  }
+#else
+  client->setInsecure();
 #endif
+#elif defined(ESP32)
+#ifdef USE_TLS_CERTS
+  if (verifyCert) {
+    client->setCACert(cert_ISRG_X1);
+  } else {
+    client->setInsecure();
+  }
+#else
+  client->setInsecure();
+#endif
+#endif
+#endif
+}
+
+bool MyDeviceProperties::ensureStorageReady() {
+  if (fsReady) {
+    return true;
+  }
+#if defined(ESP32)
+  fsReady = LittleFS.begin(true);
+#else
+  fsReady = LittleFS.begin();
+#endif
+  if (!fsReady) {
+    MYPROPS_LOG("LittleFS begin fail");
+    return false;
+  }
+
+  int split = storagePath.lastIndexOf('/');
+  if (split > 0) {
+    String dir = storagePath.substring(0, split);
+    if (!LittleFS.exists(dir) && !LittleFS.mkdir(dir)) {
+      MYPROPS_LOG("mkdir for storage fail");
+      return false;
+    }
+  }
+  return true;
 }
 
 bool MyDeviceProperties::begin(const char *serverAddress,
                                const char *deviceTypeId) {
-  return begin(serverAddress, deviceTypeId, this->eepromOffset);
+  this->serverAddress = serverAddress ? serverAddress : "";
+  this->deviceTypeId = deviceTypeId ? deviceTypeId : "";
+  MYPROPS_LOGF("begin server=%s device=%s path=%s\n", this->serverAddress.c_str(),
+               this->deviceTypeId.c_str(), storagePath.c_str());
+  return ensureStorageReady() && loadFromStorage();
 }
 
-bool MyDeviceProperties::begin(const char *serverAddress,
-                               const char *deviceTypeId,
-                               size_t eepromOffset) {
-  this->serverAddress = serverAddress;
-  this->deviceTypeId = deviceTypeId;
-  this->eepromOffset = eepromOffset;
-  MYPROPS_LOGF("begin server=%s device=%s offset=%u\n", serverAddress,
-               deviceTypeId, static_cast<unsigned>(eepromOffset));
-  EEPROM.begin(eepromSize);
-  return loadFromEEPROM();
+const char *MyDeviceProperties::Get(const char *key,
+                                    const char *defaultValue) const {
+  const char *fallback = defaultValue ? defaultValue : "";
+  if (!key || key[0] == '\0') {
+    return fallback;
+  }
+
+  JsonVariantConst value = doc[key];
+  if (value.isNull()) {
+    return fallback;
+  }
+
+  const char *result = value.as<const char *>();
+  return result ? result : fallback;
 }
 
 JsonDocument &MyDeviceProperties::json() { return doc; }
@@ -61,63 +91,59 @@ String MyDeviceProperties::buildUrl() const {
   return protocol + serverAddress + "/ota/" + deviceTypeId + "/properties";
 }
 
-size_t MyDeviceProperties::availableStorage() const {
-  size_t reserved = eepromOffset + reservedTailBytes + sizeof(uint16_t);
-  if (reserved >= eepromSize) {
-    return 0;
-  }
-  return eepromSize - reserved;
-}
-
-String MyDeviceProperties::readPayloadFromEEPROM() {
-  uint16_t len = EEPROM.read(eepromOffset) |
-                 (EEPROM.read(eepromOffset + 1) << 8);
-  if (len == 0 || len > availableStorage()) {
-    MYPROPS_LOG("eeprom empty");
-    return "";
-  }
-  String payload;
-  payload.reserve(len);
-  for (uint16_t i = 0; i < len; i++) {
-    payload += static_cast<char>(EEPROM.read(eepromOffset + 2 + i));
-  }
-  return payload;
-}
-
-bool MyDeviceProperties::saveToEEPROM(const String &payload) {
-  size_t space = availableStorage();
-  if (payload.length() > space) {
-    MYPROPS_LOG("not enough space on eeprom");
+bool MyDeviceProperties::saveToStorage(const String &payload) {
+  if (!ensureStorageReady()) {
     return false;
   }
-  uint16_t len = static_cast<uint16_t>(payload.length());
-  EEPROM.write(eepromOffset, len & 0xFF);
-  EEPROM.write(eepromOffset + 1, (len >> 8) & 0xFF);
-  for (uint16_t i = 0; i < len; i++) {
-    EEPROM.write(eepromOffset + 2 + i, static_cast<uint8_t>(payload[i]));
+
+  File f = LittleFS.open(storagePath, "w");
+  if (!f) {
+    MYPROPS_LOG("open storage file in write fail");
+    return false;
   }
-  bool ok = EEPROM.commit();
-  if (ok) {
-    cachedPayload = payload;
+
+  bool ok = f.print(payload);
+  f.close();
+  if (!ok) {
+    MYPROPS_LOG("write payload fail");
+    return false;
   }
-  return ok;
+
+  cachedPayload = payload;
+  return true;
 }
 
-bool MyDeviceProperties::loadFromEEPROM() {
-  String payload = readPayloadFromEEPROM();
+bool MyDeviceProperties::loadFromStorage() {
+  if (!ensureStorageReady()) {
+    return false;
+  }
+
+  File f = LittleFS.open(storagePath, "r");
+  if (!f) {
+    doc.clear();
+    MYPROPS_LOG("storage file missing");
+    return false;
+  }
+
+  String payload = f.readString();
+  f.close();
+  payload.trim();
+
   if (payload.isEmpty()) {
     doc.clear();
-    MYPROPS_LOG("eeprom payload empty");
+    MYPROPS_LOG("storage payload empty");
     return false;
   }
+
   DeserializationError err = deserializeJson(doc, payload);
   if (err) {
     doc.clear();
-    MYPROPS_LOG("eeprom parse fail");
+    MYPROPS_LOG("storage parse fail");
     return false;
   }
+
   cachedPayload = payload;
-  MYPROPS_LOG("eeprom payload loaded");
+  MYPROPS_LOG("storage payload loaded");
   return true;
 }
 
@@ -131,12 +157,10 @@ bool MyDeviceProperties::fetchAndStoreIfChanged() {
   MYPROPS_LOGF("get %s\n", url.c_str());
   HTTPClient http;
 #ifdef USE_TLS
-  // no-op when not verifying, set in constructor
   if (verifyCert) {
-    // On ESP8266 buffer reduction helps with memory usage when using TLS
-  #ifdef ESP8266
+#ifdef ESP8266
     client->setBufferSizes(512, 264);
-  #endif
+#endif
   }
 #endif
 
@@ -156,6 +180,7 @@ bool MyDeviceProperties::fetchAndStoreIfChanged() {
 
   String payload = http.getString();
   http.end();
+  payload.trim();
 
   MYPROPS_LOGF("payload %s\n", payload.c_str());
 
@@ -164,16 +189,11 @@ bool MyDeviceProperties::fetchAndStoreIfChanged() {
     return true;
   }
 
-  if (payload.length() > availableStorage()) {
-    MYPROPS_LOG("payload too big");
-    return false;
-  }
-
   DeserializationError err = deserializeJson(doc, payload);
   if (err) {
     MYPROPS_LOG("json parse fail");
     return false;
   }
 
-  return saveToEEPROM(payload);
+  return saveToStorage(payload);
 }
