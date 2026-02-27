@@ -25,49 +25,77 @@ bool DeviceSetupManager::begin() {
     }
   }
 
+  _deviceId = loadProvisioningValue(_deviceIdFileName);
+  _deviceTypeId = loadProvisioningValue(_deviceTypeIdFileName);
+  _portalServerIp = loadProvisioningValue(_portalServerIpFileName);
   _begun = true;
   DSM_LOGF("LittleFS ready, provisioning dir=%s\n", _provisioningDir.c_str());
+  DSM_LOGF("DEVICE ID [%s]\n", deviceId());
+  DSM_LOGF("DEVICE TYPE ID [%s]\n", deviceTypeId());
+  DSM_LOGF("PORTAL SERVER [%s]\n", portalServerIp());
   return true;
 }
 
 bool DeviceSetupManager::saveDeviceId(const char *deviceId) {
+  bool ok = saveProvisioningValue(_deviceIdFileName, deviceId);
+  if (ok) {
+    _deviceId = deviceId;
+  }
+  return ok;
+}
+
+const char *DeviceSetupManager::deviceId() const {
+  return _deviceId.c_str();
+}
+
+const char *DeviceSetupManager::deviceTypeId() const {
+  return _deviceTypeId.c_str();
+}
+
+const char *DeviceSetupManager::portalServerIp() const {
+  return _portalServerIp.c_str();
+}
+
+bool DeviceSetupManager::saveProvisioningValue(const char *fileName,
+                                               const char *value) {
   if (!begin()) {
     return false;
   }
-  if (!deviceId || strlen(deviceId) == 0) {
-    DSM_LOG("device id empty");
+  if (!fileName || strlen(fileName) == 0 || !value || strlen(value) == 0) {
+    DSM_LOG("invalid provisioning value");
     return false;
   }
 
-  String path = _provisioningDir + "/" + _deviceIdFileName;
+  String path = _provisioningDir + "/" + fileName;
   File f = LittleFS.open(path, "w");
   if (!f) {
-    DSM_LOG("open device id file failed");
+    DSM_LOG("open provisioning file failed");
     return false;
   }
-  if (!f.print(deviceId)) {
+  if (!f.print(value)) {
     f.close();
-    DSM_LOG("write device id failed");
+    DSM_LOG("write provisioning value failed");
     return false;
   }
   f.close();
-  DSM_LOGF("device id saved: %s\n", deviceId);
+  DSM_LOGF("provisioning value saved: %s=%s\n", fileName, value);
   return true;
 }
 
-String DeviceSetupManager::readDeviceId() const {
-  if (!_begun) {
+String DeviceSetupManager::loadProvisioningValue(const char *fileName) const {
+  if (!fileName || strlen(fileName) == 0) {
     return "";
   }
-  String path = _provisioningDir + "/" + _deviceIdFileName;
+
+  String path = _provisioningDir + "/" + fileName;
   File f = LittleFS.open(path, "r");
   if (!f) {
-    DSM_LOG("device id file not found");
+    DSM_LOGF("provisioning file not found: %s\n", fileName);
     return "";
   }
-  String deviceId = f.readStringUntil('\n');
+  String value = f.readStringUntil('\n');
   f.close();
-  deviceId.trim();
-  DSM_LOGF("device id loaded: %s\n", deviceId.c_str());
-  return deviceId;
+  value.trim();
+  DSM_LOGF("provisioning value loaded: %s=%s\n", fileName, value.c_str());
+  return value;
 }

@@ -14,12 +14,22 @@ public:
 
   bool begin();
   bool saveDeviceId(const char *deviceId);
-  String readDeviceId() const;
+  const char *deviceId() const;
+  const char *deviceTypeId() const;
+  const char *portalServerIp() const;
 
 private:
   String _provisioningDir;
   bool _begun{false};
+  String _deviceId;
+  String _deviceTypeId;
+  String _portalServerIp;
   static constexpr const char *_deviceIdFileName = "device_id.txt";
+  static constexpr const char *_deviceTypeIdFileName = "device_type_id.txt";
+  static constexpr const char *_portalServerIpFileName = "portal_server_ip.txt";
+
+  bool saveProvisioningValue(const char *fileName, const char *value);
+  String loadProvisioningValue(const char *fileName) const;
 };
 
 #endif
