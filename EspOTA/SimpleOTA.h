@@ -12,18 +12,22 @@ private:
   FirmwareData *version{nullptr};
   Network *network{nullptr};
   unsigned long t1{0};
-  const char *API_KEY{nullptr};
+  String deviceTypeId;
+  String deviceId;
+  String deviceSecret;
   bool isInit{false};
 
   void initVersion();
   void initNetwork(const char *base_url, bool useTLS);
   bool serverFirmwareCheck();
   bool startDownload();
-  void init(const char *API_KEY);
+  void init(const char *deviceTypeId, const char *deviceId,
+            const char *deviceSecret);
 
 public:
   SimpleOTA();
-  void begin(const char *server_address, const char *API_KEY, bool verifyCert);
+  void begin(const char *server_address, const char *deviceTypeId,
+             const char *deviceId, const char *deviceSecret, bool verifyCert);
   bool checkUpdates(unsigned long seconds);
 };
 

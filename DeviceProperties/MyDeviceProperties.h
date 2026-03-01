@@ -45,7 +45,8 @@ public:
   explicit MyDeviceProperties(bool verifyCert = true,
                               const char *storagePath = "/device/properties.json");
 
-  bool begin(const char *serverAddress, const char *deviceTypeId);
+  bool begin(const char *serverAddress, const char *deviceId,
+             const char *deviceSecret);
   bool fetchAndStoreIfChanged();
   bool loadFromStorage();
   const char *Get(const char *key, const char *defaultValue = "") const;
@@ -54,10 +55,12 @@ public:
 private:
   bool ensureStorageReady();
   String buildUrl() const;
+  void addDeviceHeaders(HTTPClient &http) const;
   bool saveToStorage(const String &payload);
 
   String serverAddress;
-  String deviceTypeId;
+  String deviceId;
+  String deviceSecret;
   String storagePath;
   bool verifyCert;
   bool fsReady{false};

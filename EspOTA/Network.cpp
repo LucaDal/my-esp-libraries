@@ -58,27 +58,42 @@ void Network::WiFiBegin() {
 
 bool Network::isConnected() { return WiFi.status() == WL_CONNECTED; }
 
-bool Network::startConnectionTo(const char *server_api_address, String api_key,
-                                String path) {
+bool Network::startConnectionTo(const String &path) {
   bool http_connected = false;
-  String targetURL = this->BASE_URL + server_api_address + api_key + path;
+  String targetURL = this->BASE_URL + path;
   OTA_LOG(targetURL.c_str());
   http_connected = httpClient.begin(*client, targetURL);
 
   return http_connected;
 }
 
-Firmware Network::checkVersion(String api_key) {
+void Network::addVersionHeaders(const String &deviceTypeId,
+                                const String &deviceSecret) {
+  httpClient.addHeader("x-device-type-id", deviceTypeId);
+  httpClient.addHeader("x-device-secret", deviceSecret);
+}
+
+void Network::addBuildHeaders(const String &deviceTypeId,
+                              const String &deviceId,
+                              const String &deviceSecret) {
+  httpClient.addHeader("x-device-type-id", deviceTypeId);
+  httpClient.addHeader("x-device-code", deviceId);
+  httpClient.addHeader("x-device-secret", deviceSecret);
+}
+
+Firmware Network::checkVersion(const String &deviceTypeId,
+                               const String &deviceSecret) {
 
   Firmware firmware;
   firmware.version = "-1";
   OTA_LOG("checking version");
   if (isConnected()) {
 
-    bool http_connected = startConnectionTo("/ota/", api_key, "/version");
+    bool http_connected = startConnectionTo("/ota/version");
 
     if (http_connected) {
       OTA_LOG("connected");
+      addVersionHeaders(deviceTypeId, deviceSecret);
       int httpCode = httpClient.GET();
       if (httpCode == HTTP_CODE_OK) {
         String payload = httpClient.getString();
@@ -102,15 +117,17 @@ Firmware Network::checkVersion(String api_key) {
   return firmware;
 }
 
-bool Network::fileDownload(String api_key, String md5Checksum,
+bool Network::fileDownload(const String &deviceTypeId, const String &deviceId,
+                           const String &deviceSecret, String md5Checksum,
                            String currentVersion) {
 
   if (isConnected()) {
     MyUpdater update = MyUpdater(md5Checksum);
-    bool http_connected = startConnectionTo("/ota/", api_key, "/build");
+    bool http_connected = startConnectionTo("/ota/build");
 
     if (http_connected) {
       OTA_LOG("connected, start download");
+      addBuildHeaders(deviceTypeId, deviceId, deviceSecret);
       bool return_value = update.startUpdate(this->httpClient, currentVersion);
       httpClient.end();
       return return_value;

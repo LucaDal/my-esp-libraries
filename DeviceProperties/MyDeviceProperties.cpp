@@ -57,11 +57,13 @@ bool MyDeviceProperties::ensureStorageReady() {
 }
 
 bool MyDeviceProperties::begin(const char *serverAddress,
-                               const char *deviceTypeId) {
+                               const char *deviceId,
+                               const char *deviceSecret) {
   this->serverAddress = serverAddress ? serverAddress : "";
-  this->deviceTypeId = deviceTypeId ? deviceTypeId : "";
+  this->deviceId = deviceId ? deviceId : "";
+  this->deviceSecret = deviceSecret ? deviceSecret : "";
   MYPROPS_LOGF("begin server=%s device=%s path=%s\n", this->serverAddress.c_str(),
-               this->deviceTypeId.c_str(), storagePath.c_str());
+               this->deviceId.c_str(), storagePath.c_str());
   return ensureStorageReady() && loadFromStorage();
 }
 
@@ -88,7 +90,12 @@ String MyDeviceProperties::buildUrl() const {
 #ifdef USE_TLS
   protocol = "https://";
 #endif
-  return protocol + serverAddress + "/ota/" + deviceTypeId + "/properties";
+  return protocol + serverAddress + "/ota/properties";
+}
+
+void MyDeviceProperties::addDeviceHeaders(HTTPClient &http) const {
+  http.addHeader("x-device-code", deviceId);
+  http.addHeader("x-device-secret", deviceSecret);
 }
 
 bool MyDeviceProperties::saveToStorage(const String &payload) {
@@ -171,6 +178,7 @@ bool MyDeviceProperties::fetchAndStoreIfChanged() {
     return false;
   }
 
+  addDeviceHeaders(http);
   int httpCode = http.GET();
   if (httpCode != HTTP_CODE_OK) {
     http.end();

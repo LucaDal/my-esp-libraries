@@ -43,15 +43,22 @@ private:
   JsonDocument doc;
   String BASE_URL;
   void setClock();
-  bool startConnectionTo(const char *server_api_address, String api_key, String path);
+  bool startConnectionTo(const String &path);
+  void addVersionHeaders(const String &deviceTypeId,
+                         const String &deviceSecret);
+  void addBuildHeaders(const String &deviceTypeId, const String &deviceId,
+                       const String &deviceSecret);
 
 public:
   // verifyCert: true = validate CA (when TLS is compiled in), false = setInsecure()
   Network(const char *base_url, bool verifyCert);
   void WiFiBegin();
   bool isConnected();
-  Firmware checkVersion(String api_key);
-  bool fileDownload(String api_key, String md5Checksum, String currentVersion);
+  Firmware checkVersion(const String &deviceTypeId,
+                        const String &deviceSecret);
+  bool fileDownload(const String &deviceTypeId, const String &deviceId,
+                    const String &deviceSecret, String md5Checksum,
+                    String currentVersion);
 };
 
 #endif // NETWORK_H

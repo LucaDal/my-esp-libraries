@@ -26,11 +26,13 @@ bool DeviceSetupManager::begin() {
   }
 
   _deviceId = loadProvisioningValue(_deviceIdFileName);
+  _deviceSecret = loadProvisioningValue(_deviceSecretFileName);
   _deviceTypeId = loadProvisioningValue(_deviceTypeIdFileName);
   _portalServerIp = loadProvisioningValue(_portalServerIpFileName);
   _begun = true;
   DSM_LOGF("LittleFS ready, provisioning dir=%s\n", _provisioningDir.c_str());
   DSM_LOGF("DEVICE ID [%s]\n", deviceId());
+  DSM_LOGF("DEVICE SECRET [%s]\n", strlen(deviceSecret()) > 0 ? "set" : "missing");
   DSM_LOGF("DEVICE TYPE ID [%s]\n", deviceTypeId());
   DSM_LOGF("PORTAL SERVER [%s]\n", portalServerIp());
   return true;
@@ -44,8 +46,20 @@ bool DeviceSetupManager::saveDeviceId(const char *deviceId) {
   return ok;
 }
 
+bool DeviceSetupManager::saveDeviceSecret(const char *deviceSecret) {
+  bool ok = saveProvisioningValue(_deviceSecretFileName, deviceSecret);
+  if (ok) {
+    _deviceSecret = deviceSecret;
+  }
+  return ok;
+}
+
 const char *DeviceSetupManager::deviceId() const {
   return _deviceId.c_str();
+}
+
+const char *DeviceSetupManager::deviceSecret() const {
+  return _deviceSecret.c_str();
 }
 
 const char *DeviceSetupManager::deviceTypeId() const {

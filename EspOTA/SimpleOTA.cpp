@@ -7,17 +7,21 @@ SimpleOTA::SimpleOTA() {
   instance = this;
 }
 
-void SimpleOTA::init(const char *API_KEY) {
+void SimpleOTA::init(const char *deviceTypeId, const char *deviceId,
+                     const char *deviceSecret) {
   this->initVersion();
-  this->API_KEY = API_KEY;
+  this->deviceTypeId = deviceTypeId ? deviceTypeId : "";
+  this->deviceId = deviceId ? deviceId : "";
+  this->deviceSecret = deviceSecret ? deviceSecret : "";
   this->isInit = true;
   checkUpdates(0);
 }
 
-void SimpleOTA::begin(const char *server_address, const char *API_KEY,
+void SimpleOTA::begin(const char *server_address, const char *deviceTypeId,
+                      const char *deviceId, const char *deviceSecret,
                       bool verifyCert) {
   this->initNetwork(server_address, verifyCert);
-  init(API_KEY);
+  init(deviceTypeId, deviceId, deviceSecret);
 }
 
 bool SimpleOTA::checkUpdates(unsigned long seconds) {
@@ -44,7 +48,8 @@ void SimpleOTA::initNetwork(const char *base_url, bool useTLS) {
 }
 
 bool SimpleOTA::startDownload() {
-  if (network->fileDownload(API_KEY, version->getFirmwareMD5Image(),
+  if (network->fileDownload(deviceTypeId, deviceId, deviceSecret,
+                            version->getFirmwareMD5Image(),
                             version->getOldFirmwareVersion())) {
     OTA_LOG("saving new version to storage");
     version->saveVersion(version->getNewFirmwareVersion());
@@ -56,7 +61,7 @@ bool SimpleOTA::startDownload() {
 }
 
 bool SimpleOTA::serverFirmwareCheck() {
-  version->setNewFirmware(network->checkVersion(API_KEY));
+  version->setNewFirmware(network->checkVersion(deviceTypeId, deviceSecret));
   if (version->getNewFirmwareVersion() == "-1") {
     OTA_LOG("server not responding");
     return false;
