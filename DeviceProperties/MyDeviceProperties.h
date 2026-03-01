@@ -50,6 +50,9 @@ public:
   bool fetchAndStoreIfChanged();
   bool loadFromStorage();
   const char *Get(const char *key, const char *defaultValue = "") const;
+  int GetInt(const char *key, int defaultValue = 0) const;
+  bool GetBool(const char *key, bool defaultValue = false) const;
+  float GetFloat(const char *key, float defaultValue = 0.0f) const;
   JsonDocument &json();
 
 private:

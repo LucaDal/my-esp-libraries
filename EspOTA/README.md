@@ -1,42 +1,29 @@
-# MyESP_OTA
+# EspOTA
 
-Minimal OTA helper for ESP8266/ESP32. It checks a backend for a new firmware version and downloads it via HTTP or HTTPS (controlled by the `USE_TLS` build flag).
+Helper OTA per ESP8266/ESP32. Controlla la disponibilita di nuovo firmware sul backend e, se presente, lo scarica.
 
-## Features
-- HTTP or HTTPS (when `USE_TLS` is defined; Let’s Encrypt roots included).
-- Optional certificate verification (`verifyCert` argument).
-- EEPROM-backed version tracking.
-- Compact debug logs via `CommonDebug` when `DEBUG` is defined.
+## API
 
-## Dependencies
-- ArduinoJson (v7)
-- WiFi/WiFiClientSecure (board core)
+- `begin(serverAddress, deviceTypeId, deviceId, deviceSecret, verifyCert)`
+- `checkUpdates(seconds)`
 
-## Usage
+## Esempio
+
 ```cpp
-#include <Arduino.h>
 #include "SimpleOTA.h"
-#include "secret_data.h" // defines PORTAL_SERVER_IP, DEVICE_TYPE_ID
 
 SimpleOTA ota;
 
 void setup() {
-  Serial.begin(115200);
-  // connect WiFi here...
-
-  // EEPROM size for version storage, server (no http/https prefix), device id, verifyCert
-  ota.begin(512, PORTAL_SERVER_IP, DEVICE_TYPE_ID, false);
+  ota.begin("example.com/api", "THERMO", "DEVICE-01", "secret", true);
 }
 
 void loop() {
-  ota.checkUpdates(300); // check every 300 seconds
+  ota.checkUpdates(3600);
 }
 ```
 
-## HTTPS
-- Build with `-DUSE_TLS` to enable HTTPS. Without it, OTA uses HTTP only.
-- `verifyCert=true` uses embedded Let’s Encrypt roots on ESP8266/ESP32; `false` calls `setInsecure()` (lighter but no validation).
+## Note
 
-## Debug
-- Define `-DDEBUG` in `platformio.ini` to enable `*OTA:` logs (routed through [`CommonDebug`](../CommonDebug/CommonDebug.h)).
-- Leave disabled to avoid extra flash usage; when `DEBUG` is not set the logging code is compiled out.
+- La versione firmware e salvata in `/device/fw_version.txt`.
+- Con `USE_TLS` usa HTTPS; senza, usa HTTP.

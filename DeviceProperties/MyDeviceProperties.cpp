@@ -83,6 +83,48 @@ const char *MyDeviceProperties::Get(const char *key,
   return result ? result : fallback;
 }
 
+int MyDeviceProperties::GetInt(const char *key, int defaultValue) const {
+  if (!key || key[0] == '\0') {
+    return defaultValue;
+  }
+
+  JsonVariantConst value = doc[key];
+  if (value.isNull()) {
+    return defaultValue;
+  }
+
+  int result = value.as<int>();
+  return value.is<int>() ? result : defaultValue;
+}
+
+bool MyDeviceProperties::GetBool(const char *key, bool defaultValue) const {
+  if (!key || key[0] == '\0') {
+    return defaultValue;
+  }
+
+  JsonVariantConst value = doc[key];
+  if (value.isNull()) {
+    return defaultValue;
+  }
+
+  bool result = value.as<bool>();
+  return value.is<bool>() ? result : defaultValue;
+}
+
+float MyDeviceProperties::GetFloat(const char *key, float defaultValue) const {
+  if (!key || key[0] == '\0') {
+    return defaultValue;
+  }
+
+  JsonVariantConst value = doc[key];
+  if (value.isNull()) {
+    return defaultValue;
+  }
+
+  float result = value.as<float>();
+  return value.is<float>() || value.is<int>() ? result : defaultValue;
+}
+
 JsonDocument &MyDeviceProperties::json() { return doc; }
 
 String MyDeviceProperties::buildUrl() const {

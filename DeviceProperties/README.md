@@ -1,49 +1,38 @@
 # MyDeviceProperties
 
-Fetches device properties from your backend and caches them in EEPROM so they persist across reboots. Supports HTTP or HTTPS (controlled by the `USE_TLS` build flag).
+Scarica `/ota/properties` dal backend, salva il JSON in LittleFS e lo espone in RAM tramite `ArduinoJson`.
 
-## Features
-- HTTP/HTTPS fetch from `http(s)://<server>/ota/<deviceTypeId>/properties`.
-- Length-prefixed payload saved to EEPROM; skips writes if unchanged.
-- Provides a `JsonDocument` in RAM for easy access.
-- Compact debug logs via `CommonDebug` when `DEBUG` is defined.
+## API
 
-## Dependencies
-- ArduinoJson (v7)
-- WiFi/WiFiClientSecure (board core)
+- `begin(serverAddress, deviceId, deviceSecret)`
+- `fetchAndStoreIfChanged()`
+- `loadFromStorage()`
+- `Get(key, defaultValue)`
+- `GetInt(key, defaultValue)`
+- `GetBool(key, defaultValue)`
+- `GetFloat(key, defaultValue)`
+- `json()`
 
-## Usage
+## Esempio
+
 ```cpp
-#include <Arduino.h>
 #include "MyDeviceProperties.h"
-#include "secret_data.h" // defines PORTAL_SERVER_IP, DEVICE_TYPE_ID
 
-MyDeviceProperties props; // defaults: 512-byte EEPROM, last 3 bytes reserved
+MyDeviceProperties props;
 
 void setup() {
-  Serial.begin(115200);
-  // connect WiFi here...
+  props.begin("example.com/api", "DEVICE-01", "secret");
+  props.fetchAndStoreIfChanged();
 
-  // Optional third argument sets EEPROM offset (defaults to 0 or ctor value)
-  props.begin(PORTAL_SERVER_IP, DEVICE_TYPE_ID); 
-  // props.begin(PORTAL_SERVER_IP, DEVICE_TYPE_ID, 16); // with explicit offset
-  props.fetchAndStoreIfChanged();                // fetches and saves if different
-
-  JsonDocument &doc = props.json();
-  const char* propName = doc["key"] | "";
-  Serial.println(propName);
-}
-
-void loop() {
-  // Optionally poll again later:
-  // props.fetchAndStoreIfChanged();
+  const char *topic = props.Get("topic");
+  int port = props.GetInt("MQTT_PORT", 8883);
+  bool enabled = props.GetBool("enabled", false);
+  float lat = props.GetFloat("latitude", 0.0f);
 }
 ```
 
-## HTTPS
-- Build with `-DUSE_TLS` to enable HTTPS. Without it, only HTTP is used.
-- Constructor argument `verifyCert=true` enables CA validation (Let’s Encrypt roots) on ESP8266/ESP32; `false` calls `setInsecure()` (lighter but no validation).
+## Note
 
-## Debug
-- Define `-DDEBUG` in `platformio.ini` to enable `*MyProps:` logs (routed through [`CommonDebug`](../CommonDebug/CommonDebug.h)).
-- Leave disabled to avoid extra flash usage; when `DEBUG` is not set the logging code is compiled out.
+- I dati sono salvati in `/device/properties.json`.
+- La richiesta usa gli header `x-device-code` e `x-device-secret`.
+- Con `USE_TLS` usa HTTPS; senza, usa HTTP.
