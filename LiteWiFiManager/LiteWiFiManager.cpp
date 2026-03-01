@@ -11,8 +11,6 @@ bool LiteWiFiManager::begin(const char *apSsid,
                             const char *apPassword,
                             unsigned long configPortalTimeoutMs,
                             bool forcePortal) {
-  WiFi.persistent(false);  // avoid flash writes unless saving new creds
-
   if (!forcePortal && connectWithStored()) {
     return true;
   }
@@ -51,15 +49,10 @@ bool LiteWiFiManager::connectWithStored(unsigned long connectTimeoutMs) {
   WiFi.mode(WIFI_STA);
   WiFi.setAutoConnect(true);
   WiFi.setAutoReconnect(true);
+  WiFi.persistent(true);
   WiFi.begin();  // reconnect using credentials already stored by the core
-
-  String ssid = WiFi.SSID();
-  if (ssid.length() == 0) {
-    WM_LOG("No stored WiFi credentials");
-    return false;
-  }
-
-  WM_LOGF("Connecting to stored SSID: %s\n", ssid.c_str());
+  WiFi.persistent(false);
+  WM_LOG("Connecting using stored WiFi credentials");
   unsigned long start = millis();
   while (WiFi.status() != WL_CONNECTED &&
          millis() - start < connectTimeoutMs) {
@@ -72,7 +65,7 @@ bool LiteWiFiManager::connectWithStored(unsigned long connectTimeoutMs) {
     return true;
   }
 
-  WM_LOG("Stored credentials failed");
+  WM_LOGF("Stored credentials failed, status=%d\n", WiFi.status());
   return false;
 }
 
