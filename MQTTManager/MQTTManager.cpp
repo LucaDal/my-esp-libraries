@@ -52,6 +52,10 @@ bool MQTTManager::connect(const char *clientId, const char *username,
   return mqttClient.connect(clientId);
 }
 
+void MQTTManager::disconnect() {
+    mqttClient.disconnect();
+}
+
 bool MQTTManager::subscribe(const char *topic) {
   if (!topic || strlen(topic) == 0) {
     return false;

@@ -23,13 +23,13 @@ public:
   explicit MQTTManager(const char *provisioningDir = "/provisioning");
 
   bool begin(const char *host, uint16_t port,
-             MQTTMessageCallback callback = nullptr,
-             int keepAliveSeconds = 60);
+             MQTTMessageCallback callback = nullptr, int keepAliveSeconds = 60);
   void setCallback(MQTTMessageCallback callback);
   void setKeepAlive(uint16_t keepAliveSeconds);
 
   bool connect(const char *clientId, const char *username = nullptr,
                const char *password = nullptr);
+  void disconnect();
   bool subscribe(const char *topic);
   bool publish(const char *topic, const char *payload, bool retained = false);
   bool connected();
