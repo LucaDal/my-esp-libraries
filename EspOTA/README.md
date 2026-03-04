@@ -27,3 +27,4 @@ void loop() {
 
 - La versione firmware e salvata in `/device/fw_version.txt`.
 - Con `USE_TLS` usa HTTPS; senza, usa HTTP.
+- Con verifica certificati attiva, sincronizza l'ora via `TimeSyncManager` prima delle richieste HTTPS.

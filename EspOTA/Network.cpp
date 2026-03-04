@@ -1,15 +1,15 @@
 #include "Network.h"
 
-Network::Network(const char *base_url, bool verifyCert) {
+Network::Network(const char *base_url, bool verifyCert)
+    : verifyCertEnabled(verifyCert) {
 #ifdef USE_TLS
   this->BASE_URL = String("https://");
   #ifdef ESP8266
     this->trustedRoots.append(cert_ISRG_X1);
     this->trustedRoots.append(cert_ISRG_X2);
-    if (verifyCert) {
+    if (verifyCertEnabled) {
       this->client->setTrustAnchors(&trustedRoots);
       this->client->setSSLVersion(BR_TLS12, BR_TLS12);
-      setClock();
     } else {
       this->client->setInsecure();
     }
@@ -17,38 +17,16 @@ Network::Network(const char *base_url, bool verifyCert) {
     this->client->setBufferSizes(512, 264);
   #endif
   #ifdef ESP32
-    if (verifyCert) {
+    if (verifyCertEnabled) {
       this->client->setCACert(cert_ISRG_X1);
     } else {
       this->client->setInsecure();
     }
   #endif
 #else
-  (void)verifyCert;
   this->BASE_URL = String("http://");
 #endif
   this->BASE_URL += String(base_url);
-}
-
-void Network::setClock() {
-#ifdef ESP8266
-  configTime("Europe/Rome", "europe.pool.ntp.org");
-#endif
-#ifdef DEBUG
-  OTA_LOGF("%lu ntp sync\n", millis());
-  time_t now = time(nullptr);
-  while (now < 8 * 3600 * 2) {
-    delay(250);
-    Serial.print(".");
-    now = time(nullptr);
-  }
-  Serial.print(F("\r\n"));
-  struct tm timeinfo; // NOLINT(cppcoreguidelines-pro-type-member-init)
-  gmtime_r(&now, &timeinfo);
-  OTA_LOGF("utc %s", asctime(&timeinfo));
-  localtime_r(&now, &timeinfo);
-  OTA_LOGF("local %s", asctime(&timeinfo));
-#endif
 }
 
 void Network::WiFiBegin() {
@@ -59,6 +37,13 @@ void Network::WiFiBegin() {
 bool Network::isConnected() { return WiFi.status() == WL_CONNECTED; }
 
 bool Network::startConnectionTo(const String &path) {
+#if defined(USE_TLS)
+  if (verifyCertEnabled && !timeSync.ensureTimeSynced(5000, 100)) {
+    OTA_LOG("time sync failed, cannot validate TLS certificate");
+    return false;
+  }
+#endif
+
   bool http_connected = false;
   String targetURL = this->BASE_URL + path;
   OTA_LOG(targetURL.c_str());

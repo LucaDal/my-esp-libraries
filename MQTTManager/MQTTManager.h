@@ -4,15 +4,21 @@
 #include <CommonDebug.h>
 #include <LittleFS.h>
 #include <PubSubClient.h>
+#include <TimeSyncManager.h>
 #include <memory>
 
+#ifdef USE_TLS
 #ifdef ESP8266
 #include <BearSSLHelpers.h>
 #include <WiFiClientSecureBearSSL.h>
-using MQTTSecureClient = BearSSL::WiFiClientSecure;
+using MQTTTransportClient = BearSSL::WiFiClientSecure;
 #else
 #include <WiFiClientSecure.h>
-using MQTTSecureClient = WiFiClientSecure;
+using MQTTTransportClient = WiFiClientSecure;
+#endif
+#else
+#include <WiFiClient.h>
+using MQTTTransportClient = WiFiClient;
 #endif
 
 using MQTTMessageCallback = void (*)(char *topic, uint8_t *payload,
@@ -24,6 +30,7 @@ public:
 
   bool begin(const char *host, uint16_t port,
              MQTTMessageCallback callback = nullptr, int keepAliveSeconds = 60);
+  void setTimezone(const char *tzValue);
   void setCallback(MQTTMessageCallback callback);
   void setKeepAlive(uint16_t keepAliveSeconds);
 
@@ -49,10 +56,11 @@ private:
   String caPem;
   String clientCertPem;
   String clientKeyPem;
-  MQTTSecureClient secureClient;
+  TimeSyncManager timeSync;
+  MQTTTransportClient transportClient;
   PubSubClient mqttClient;
 
-#ifdef ESP8266
+#if defined(USE_TLS) && defined(ESP8266)
   std::unique_ptr<BearSSL::X509List> caList;
   std::unique_ptr<BearSSL::X509List> clientCertList;
   std::unique_ptr<BearSSL::PrivateKey> clientKey;

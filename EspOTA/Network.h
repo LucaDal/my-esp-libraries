@@ -5,6 +5,7 @@
 #include "MyUpdater.h"
 #include "MyFirmware.h"
 #include "CommonOta.h"
+#include "TimeSyncManager.h"
 
 #ifdef ESP8266
   #include <ESP8266WiFi.h>
@@ -36,13 +37,14 @@ private:
   HTTPClient httpClient;
 
   std::unique_ptr<NetClient> client { new NetClient };
+  TimeSyncManager timeSync;
+  bool verifyCertEnabled{false};
 
   #if defined(ESP8266) && defined(USE_TLS)
     BearSSL::X509List trustedRoots;
   #endif
   JsonDocument doc;
   String BASE_URL;
-  void setClock();
   bool startConnectionTo(const String &path);
   void addVersionHeaders(const String &deviceTypeId,
                          const String &deviceSecret);

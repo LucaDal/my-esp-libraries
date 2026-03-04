@@ -5,7 +5,11 @@
 
 MQTTManager::MQTTManager(const char *provisioningDir)
     : provisioningDir(provisioningDir ? provisioningDir : "/provisioning"),
-      mqttClient(secureClient) {}
+      mqttClient(transportClient) {}
+
+void MQTTManager::setTimezone(const char *tzValue) {
+  timeSync.setTimezone(tzValue);
+}
 
 bool MQTTManager::begin(const char *host, uint16_t port,
                         MQTTMessageCallback callback, int keepAliveSeconds) {
@@ -105,7 +109,7 @@ bool MQTTManager::loadCertificates() {
     return false;
   }
 
-#ifdef ESP8266
+#if defined(USE_TLS) && defined(ESP8266)
   caList.reset(new BearSSL::X509List(caPem.c_str()));
   clientCertList.reset(new BearSSL::X509List(clientCertPem.c_str()));
   clientKey.reset(new BearSSL::PrivateKey(clientKeyPem.c_str()));
@@ -138,22 +142,31 @@ bool MQTTManager::readPemFile(const char *fileName, String &out) {
 }
 
 bool MQTTManager::configureSecureClient() {
+#ifdef USE_TLS
+  if (!timeSync.ensureTimeSynced(5000, 100)) {
+    MQTTM_LOG("Time sync failed: TLS certificate validation unavailable");
+    return false;
+  }
+
   if (!loadCertificates()) {
     return false;
   }
 
 #ifdef ESP8266
-  secureClient.setTrustAnchors(caList.get());
-  secureClient.setClientECCert(clientCertList.get(), clientKey.get(),
+  transportClient.setTrustAnchors(caList.get());
+  transportClient.setClientECCert(clientCertList.get(), clientKey.get(),
                                BR_KEYTYPE_KEYX | BR_KEYTYPE_SIGN,
                                BR_KEYTYPE_EC);
-  secureClient.setBufferSizes(512, 512);
+  transportClient.setBufferSizes(512, 512);
 #else
-  secureClient.setCACert(caPem.c_str());
-  secureClient.setCertificate(clientCertPem.c_str());
-  secureClient.setPrivateKey(clientKeyPem.c_str());
+  transportClient.setCACert(caPem.c_str());
+  transportClient.setCertificate(clientCertPem.c_str());
+  transportClient.setPrivateKey(clientKeyPem.c_str());
 #endif
 
   MQTTM_LOG("TLS certificates loaded for MQTT");
+#else
+  MQTTM_LOG("USE_TLS disabled: MQTT client configured in plaintext mode");
+#endif
   return true;
 }
