@@ -70,6 +70,14 @@ const char *DeviceSetupManager::portalServerIp() const {
   return _portalServerIp.c_str();
 }
 
+bool DeviceSetupManager::isProvisioningReady() const {
+  return _begun &&
+         !_deviceId.isEmpty() &&
+         !_deviceSecret.isEmpty() &&
+         !_deviceTypeId.isEmpty() &&
+         !_portalServerIp.isEmpty();
+}
+
 bool DeviceSetupManager::saveProvisioningValue(const char *fileName,
                                                const char *value) {
   if (!begin()) {

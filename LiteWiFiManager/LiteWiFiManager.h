@@ -23,11 +23,8 @@ class LiteWiFiManager {
   // new credentials. Returns true when connected to WiFi.
   bool begin(const char *apSsid,
              const char *apPassword = nullptr,
-             unsigned long configPortalTimeoutMs = 180000,
+             unsigned long configPortalTimeoutMs = 300000,
              bool forcePortal = false);
-
-  // Pump this in loop() to serve the portal while active.
-  void loop();
 
   bool isPortalActive() const { return _portalActive; }
   bool isConnected() const { return WiFi.status() == WL_CONNECTED; }

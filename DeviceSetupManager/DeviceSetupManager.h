@@ -19,6 +19,7 @@ public:
   const char *deviceSecret() const;
   const char *deviceTypeId() const;
   const char *portalServerIp() const;
+  bool isProvisioningReady() const;
 
 private:
   String _provisioningDir;

@@ -5,7 +5,6 @@ Provisioning Wi-Fi minimale per ESP8266/ESP32. Prova prima le credenziali gia sa
 ## API
 
 - `begin(apSsid, apPassword, timeoutMs, forcePortal)`
-- `loop()`
 - `isPortalActive()`
 - `isConnected()`
 
@@ -21,6 +20,5 @@ void setup() {
 }
 
 void loop() {
-  wifiProvision.loop();
 }
 ```
