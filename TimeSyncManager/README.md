@@ -10,6 +10,9 @@ Libreria leggera per sincronizzare l'orario NTP in modo idempotente.
 - `ensureTimeSynced(timeoutMs, pollMs)`
   - Ritorna subito `true` se la sync e' gia' stata fatta nello stesso boot o se l'ora e' gia' valida.
   - Altrimenti avvia NTP e attende fino al timeout.
+- `updateTime(timeoutMs, pollMs)`
+  - Da chiamare nel `loop()`: sincronizza di nuovo l'orario solo quando e' passato l'intervallo configurato.
+  - Ritorna subito `true` se non e' ancora il momento di aggiornare.
 - `isTimeValid(minValidEpoch)`
 - `resetBootSyncFlag()`
 - `setTimezone("...")`
@@ -22,12 +25,21 @@ Libreria leggera per sincronizzare l'orario NTP in modo idempotente.
 ```cpp
 #include "TimeSyncManager.h"
 
-TimeSyncManager timeSync; // default Roma
+TimeSyncManager timeSync; // default Roma, aggiorna ogni 24 ore
+// TimeSyncManager timeSync(30); // default Roma, aggiorna ogni 30 minuti
+// TimeSyncManager timeSync("CET-1CEST,M3.5.0/2,M10.5.0/3",
+//                          "europe.pool.ntp.org",
+//                          "pool.ntp.org",
+//                          30); // aggiorna ogni 30 minuti
 // timeSync.setTimezone("UTC0"); // opzionale
 
 void setup() {
   bool ok = timeSync.ensureTimeSynced(2000, 100);
   // if (!ok) puoi continuare in fail-fast o dormire per risparmiare batteria
+}
+
+void loop() {
+  timeSync.updateTime();
 }
 ```
 
